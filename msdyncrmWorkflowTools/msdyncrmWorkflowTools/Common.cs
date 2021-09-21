@@ -55,6 +55,30 @@ namespace msdyncrmWorkflowTools
             return entityMetadata.SchemaName.ToLower();
         }
 
+        /// <summary>
+        /// Returns entity object type code for specified entity name
+        /// </summary>
+        /// <param name="EntityName"></param>
+        /// <param name="service"></param>
+        /// <returns></returns>
+        public int sGetEntityCodeForName(string EntityName, IOrganizationService service)
+        {
+            MetadataFilterExpression entityFilter = new MetadataFilterExpression(LogicalOperator.And);
+            entityFilter.Conditions.Add(new MetadataConditionExpression("SchemaName", MetadataConditionOperator.Equals, EntityName));
+            EntityQueryExpression entityQueryExpression = new EntityQueryExpression()
+            {
+                Criteria = entityFilter
+            };
+            RetrieveMetadataChangesRequest retrieveMetadataChangesRequest = new RetrieveMetadataChangesRequest()
+            {
+                Query = entityQueryExpression,
+                ClientVersionStamp = null
+            };
+            RetrieveMetadataChangesResponse response = (RetrieveMetadataChangesResponse)service.Execute(retrieveMetadataChangesRequest);
+
+            EntityMetadata entityMetadata = (EntityMetadata)response.EntityMetadata[0];
+            return entityMetadata.ObjectTypeCode ?? 0;
+        }
 
         public EntityCollection getAssociations(string PrimaryEntityName, Guid PrimaryEntityId, string _relationshipName, string entityName, string ParentId)
         {
