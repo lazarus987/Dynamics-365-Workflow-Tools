@@ -145,7 +145,23 @@ namespace msdyncrmWorkflowTools
             return (atts);
         }
 
-        public Guid CloneRecord(string entityName, string objectId, string fieldstoIgnore, string prefix)
+        /// <summary>
+        /// Clone record
+        /// If <param name="cloneChildRecord"/> is set to True -> then other input parameters will be used in cloning process.
+        /// In this case we should update parent field. 30.11.2021. Before this fix, CloneChilg WF would completely clone child recod, and then in the WF
+        /// it would call Update to set parent field to new parent value. This doesn't work for i.e. cloning active Quote and related Quote products.
+        /// </summary>
+        /// <param name="entityName"></param>
+        /// <param name="objectId"></param>
+        /// <param name="fieldstoIgnore"></param>
+        /// <param name="prefix"></param>
+        /// <param name="parentEntityId">Used in clone child proccess</param>
+        /// <param name="cloneChildRecord">True indicates that child record is cloned.</param>
+        /// <param name="parentFieldName">Used in clone child proccess</param>
+        /// <param name="parentEntityName">Used in clone child proccess</param>
+        /// <returns></returns>
+        public Guid CloneRecord(string entityName, string objectId, string fieldstoIgnore, string prefix,
+            Guid parentEntityId, bool cloneChildRecord = false, string parentFieldName = "", string parentEntityName = "")
         {
             tracingService.Trace("entering CloneRecord");
             if (fieldstoIgnore == null) fieldstoIgnore = "";
@@ -169,6 +185,13 @@ namespace msdyncrmWorkflowTools
                     {
                         continue;
                     }
+                }
+
+                // Ignore parent entity field when cloning child - it will be set later
+                if(cloneChildRecord && att == parentFieldName)
+                {
+                    tracingService.Trace("CloneChild process - skip parent field in this loop:{0}", att);
+                    continue;
                 }
 
 
@@ -225,9 +248,16 @@ namespace msdyncrmWorkflowTools
                 }
             }
 
+            // Ignore parent entity field when cloning child - it will be set later
+            if (cloneChildRecord)
+            {
+                tracingService.Trace($"CloneChild process - set parent field: Name:{parentFieldName} Id:{parentEntityId}");
+                newEntity.Attributes.Add(parentFieldName, new EntityReference(parentEntityName, parentEntityId));
+            }
+
             tracingService.Trace("creating cloned object...");
             Guid createdGUID = service.Create(newEntity);
-            tracingService.Trace("created cloned object OK");
+            tracingService.Trace($"created cloned object (id={createdGUID}) OK");
 
             if (newEntity.Attributes.Contains("statuscode") && newEntity.Attributes.Contains("statecode"))
             {
@@ -237,15 +267,19 @@ namespace msdyncrmWorkflowTools
                 if (retrievedObject.Attributes["statuscode"] != record.Attributes["statuscode"] ||
                     retrievedObject.Attributes["statecode"] != record.Attributes["statecode"])
                 {
+                    tracingService.Trace("set statuscode and statecode for cloned object same as original object...");
+
                     Entity setStatusEnt = new Entity(entityName, createdGUID);
                     setStatusEnt.Attributes.Add("statuscode", retrievedObject.Attributes["statuscode"]);
                     setStatusEnt.Attributes.Add("statecode", retrievedObject.Attributes["statecode"]);
 
                     service.Update(setStatusEnt);
+
+                    tracingService.Trace("set statuscode and statecode for cloned object same as original object OK");
                 }
             }
 
-            tracingService.Trace("cloned object OK");
+            tracingService.Trace($"cloned object id={createdGUID} OK");
             return createdGUID;
         }
 

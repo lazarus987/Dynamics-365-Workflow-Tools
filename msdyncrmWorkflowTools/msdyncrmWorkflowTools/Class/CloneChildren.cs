@@ -122,8 +122,31 @@ namespace msdyncrmWorkflowTools
              
             foreach (var item in children.Entities)
             {
-                var newRecordId = objCommon.CloneRecord(item.LogicalName, item.Id.ToString(), fieldstoIgnore, prefix);
+                // If cloning is executed for one of folowing records:
+                //  - Opportunity product
+                //  - Quote product
+                //  - Order product
+                //  - Invoice product
+                // Check if related Product is not in Retired state (State=1).
+                if(item.LogicalName == "opportunityproduct" ||
+                    item.LogicalName == "quotedetail" ||
+                    item.LogicalName == "salesorderdetail" ||
+                    item.LogicalName == "invoicedetail")
+                {
+                    bool itemAvailableForCloning = RelatedProductIsEligibleForCloning(objCommon, item.LogicalName, item.Id); 
 
+                    if(!itemAvailableForCloning)
+                    {
+                        objCommon.tracingService.Trace($"Entity {item.LogicalName} with ID={item.Id} is not eligible for cloning -> related product is retired");
+                        continue;
+                    }
+                }
+
+                var newRecordId = objCommon.CloneRecord(item.LogicalName, item.Id.ToString(), fieldstoIgnore, prefix,
+                    new Guid(destinationId), cloneChildRecord:true, _newParentFieldName, destinationEntityName);
+
+                /*
+                 * Logic moved into CloneRecord method
                 Entity update = new Entity(item.LogicalName);
                 update.Id = newRecordId;
                 update.Attributes.Add(_newParentFieldName, new EntityReference(destinationEntityName, new Guid(destinationId)));
@@ -133,13 +156,56 @@ namespace msdyncrmWorkflowTools
                 }
 
                 objCommon.service.Update(update);
+                */
 
             }
             
 
         }
+                
+        /// <summary>
+        /// Method will be called for [opportunityproduct, quotedetail, salesorderdetail, invoicedetail].
+        /// It will check if related product is in Retired state. In that case item is not eligible for cloning. Otherwise return true
+        /// </summary>
+        /// <param name="objCommon">Common</param>
+        /// <param name="entityName">Context entity logical name</param>
+        /// <param name="id">Entity id</param>
+        /// <returns></returns>
+        private bool RelatedProductIsEligibleForCloning(Common objCommon, string entityName, Guid id)
+        {
+            var fetchData = new {
+                entityId = entityName + "id"
+	        };
 
+	        var fetchXml = $@"
+                <fetch>
+                    <entity name='{entityName}'>
+                    <filter type='and'>
+                        <condition attribute='{fetchData.entityId}' operator='eq' value='{id}'/>
+                    </filter>
+                    <link-entity name='product' from='productid' to='productid' link-type='inner' alias='product'>
+                        <attribute name='statecode' />
+                    </link-entity>
+                    </entity>
+                </fetch>";
 
+            EntityCollection ec = objCommon.service.RetrieveMultiple(new FetchExpression(fetchXml));
+
+            if(ec.Entities.Count > 0)
+            {
+                int relatedProductStateCode = ec.Entities[0].Contains("product.statecode") ?
+                    ((OptionSetValue)(ec.Entities[0].GetAttributeValue<AliasedValue>("product.statecode").Value)).Value : 0;
+                
+                if(relatedProductStateCode == 1) // Retired
+                {
+                    objCommon.tracingService.Trace($"Related product to entity({entityName}, {id}) is in Retired state. Return that item is not eligible for cloning...");
+
+                    return false;
+                }
+            }
+
+            return true;            
+        }
 
     }
 

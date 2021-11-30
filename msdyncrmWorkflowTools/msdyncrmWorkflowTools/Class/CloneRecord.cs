@@ -154,7 +154,7 @@ Customer
 
             #region "Clone Execution"
 
-            var createdGUID = objCommon.CloneRecord(entityName, objectId, fieldstoIgnore, prefix);
+            var createdGUID = objCommon.CloneRecord(entityName, objectId, fieldstoIgnore, prefix, Guid.Empty, cloneChildRecord:false);
             ClonedGuid.Set(executionContext, createdGUID.ToString());
             
 

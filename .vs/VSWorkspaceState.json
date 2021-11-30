@@ -1,6 +1,12 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\msdyncrmWorkflowTools",
+    "\\msdyncrmWorkflowTools\\msdyncrmWorkflowTools",
+    "\\msdyncrmWorkflowTools\\msdyncrmWorkflowTools\\Class",
+    "\\msdyncrmWorkflowTools\\msdyncrmWorkflowTools\\Properties",
+    "\\msdyncrmWorkflowTools\\msdyncrmWorkflowTools_Class"
   ],
+  "SelectedNode": "\\msdyncrmWorkflowTools\\msdyncrmWorkflowTools\\Class\\CloneRecord.cs",
   "PreviewInSolutionExplorer": false
 }
